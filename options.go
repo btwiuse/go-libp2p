@@ -598,3 +598,11 @@ func SwarmOpts(opts ...swarm.Option) Option {
 		return nil
 	}
 }
+
+// DisableAutoNATv2 disables autonat
+func DisableAutoNATv2() Option {
+	return func(cfg *Config) error {
+		cfg.DisableAutoNATv2 = true
+		return nil
+	}
+}
