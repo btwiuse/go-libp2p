@@ -80,7 +80,7 @@ func idAndWait(t *testing.T, cli *AutoNAT, srv *AutoNAT) {
 
 func TestAutoNATPrivateAddr(t *testing.T) {
 	an := newAutoNAT(t, nil)
-	res, err := an.CheckReachability(context.Background(), []Request{{Addr: ma.StringCast("/ip4/192.168.0.1/udp/10/quic-v1")}})
+	res, err := an.GetReachability(context.Background(), []Request{{Addr: ma.StringCast("/ip4/192.168.0.1/udp/10/quic-v1")}})
 	require.Equal(t, res, Result{})
 	require.Contains(t, err.Error(), "private address cannot be verified by autonatv2")
 }
@@ -112,7 +112,7 @@ func TestClientRequest(t *testing.T) {
 		s.Reset()
 	})
 
-	res, err := an.CheckReachability(context.Background(), []Request{
+	res, err := an.GetReachability(context.Background(), []Request{
 		{Addr: addrs[0], SendDialData: true}, {Addr: addrs[1]},
 	})
 	require.Equal(t, res, Result{})
@@ -167,7 +167,7 @@ func TestClientServerError(t *testing.T) {
 		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
 			b.SetStreamHandler(DialProtocol, tc.handler)
 			addrs := an.host.Addrs()
-			res, err := an.CheckReachability(
+			res, err := an.GetReachability(
 				context.Background(),
 				newTestRequests(addrs, false))
 			require.Equal(t, res, Result{})
@@ -280,7 +280,7 @@ func TestClientDataRequest(t *testing.T) {
 			b.SetStreamHandler(DialProtocol, tc.handler)
 			addrs := an.host.Addrs()
 
-			res, err := an.CheckReachability(
+			res, err := an.GetReachability(
 				context.Background(),
 				[]Request{
 					{Addr: addrs[0], SendDialData: true},
@@ -489,7 +489,7 @@ func TestClientDialBacks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			addrs := an.host.Addrs()
 			b.SetStreamHandler(DialProtocol, tc.handler)
-			res, err := an.CheckReachability(
+			res, err := an.GetReachability(
 				context.Background(),
 				[]Request{
 					{Addr: addrs[0], SendDialData: true},

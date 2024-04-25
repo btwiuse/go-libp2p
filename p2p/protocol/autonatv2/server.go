@@ -31,8 +31,8 @@ type server struct {
 	dialerHost host.Host
 	limiter    *rateLimiter
 
-	// dialDataRequestPolicy is used to determine whether dialing the address requires receiving dial data.
-	// It is set to amplification attack prevention by default.
+	// dialDataRequestPolicy is used to determine whether dialing the address requires receiving
+	// dial data. It is set to amplification attack prevention by default.
 	dialDataRequestPolicy dataRequestPolicyFunc
 
 	// for tests
@@ -98,7 +98,7 @@ func (as *server) handleDialRequest(s network.Stream) {
 	}
 	if msg.GetDialRequest() == nil {
 		s.Reset()
-		log.Debugf("invalid message type from %s: %T", p, msg.Msg)
+		log.Debugf("invalid message type from %s: %T expected: DialRequest", p, msg.Msg)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (as *server) handleDialRequest(s network.Stream) {
 			continue
 		}
 		// Check if the host can dial the address. This check ensures that we do not
-		// attempt dialing an IPv6 address if we have no IPv6 connectivity as the host dialer's
+		// attempt dialing an IPv6 address if we have no IPv6 connectivity as the host's
 		// black hole detector is likely to be more accurate.
 		if as.host.Network().CanDial(p, a) != network.DialabilityDialable {
 			continue
@@ -141,14 +141,13 @@ func (as *server) handleDialRequest(s network.Stream) {
 		}
 		if err := w.WriteMsg(&msg); err != nil {
 			s.Reset()
-			log.Debugf("failed to write response to %s: %s", p, err)
+			log.Debugf("failed to write dial refused response to %s: %s", p, err)
 			return
 		}
 		return
 	}
 
 	isDialDataRequired := as.dialDataRequestPolicy(s, dialAddr)
-
 	if !as.limiter.Accept(p, isDialDataRequired) {
 		msg = pb.Message{
 			Msg: &pb.Message_DialResponse{
@@ -159,10 +158,10 @@ func (as *server) handleDialRequest(s network.Stream) {
 		}
 		if err := w.WriteMsg(&msg); err != nil {
 			s.Reset()
-			log.Debugf("failed to write response to %s: %s", p, err)
+			log.Debugf("failed to write request rejected response to %s: %s", p, err)
 			return
 		}
-		log.Debugf("rejecting request from %s: rate limit exceeded", p)
+		log.Debugf("rejected request from %s: rate limit exceeded", p)
 		return
 	}
 	defer as.limiter.CompleteRequest(p)
@@ -248,12 +247,14 @@ func (as *server) dialBack(p peer.ID, addr ma.Multiaddr, nonce uint64) pb.DialSt
 		return pb.DialStatus_E_DIAL_BACK_ERROR
 	}
 
-	// Since the underlying connection is on a separate dialer, it'll be closed after this function returns.
-	// Connection close will drop all the queued writes. To ensure message delivery, do a CloseWrite and
-	// wait a second for the peer to Close its end of the stream.
+	// Since the underlying connection is on a separate dialer, it'll be closed after this
+	// function returns. Connection close will drop all the queued writes.
+	// To ensure message delivery, do a CloseWrite and read a byte from the stream. The peer
+	// actually sends a DialDataResponse back but we only care about the fact that the DialBack
+	// message has reached the peer. So we ignore that message on the read side.
 	s.CloseWrite()
-	s.SetDeadline(as.now().Add(1 * time.Second))
-	b := make([]byte, 1) // Read 1 byte here because 0 len reads are free to return (0, nil) immediately
+	s.SetDeadline(as.now().Add(5 * time.Second)) // 5 is a magic number
+	b := make([]byte, 1)                         // Read 1 byte here because 0 len reads are free to return (0, nil) immediately
 	s.Read(b)
 
 	return pb.DialStatus_OK
@@ -275,6 +276,7 @@ type rateLimiter struct {
 	dialDataReqs []time.Time
 	// ongoingReqs tracks in progress requests. This is used to disallow multiple concurrent requests by the
 	// same peer
+	// TODO: Should we allow a few concurrent requests per peer?
 	ongoingReqs map[peer.ID]struct{}
 
 	now func() time.Time // for tests

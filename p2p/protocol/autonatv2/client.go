@@ -38,8 +38,8 @@ func (ac *client) RegisterDialBack() {
 	ac.host.SetStreamHandler(DialBackProtocol, ac.handleDialBack)
 }
 
-// CheckReachability verifies address reachability with a AutoNAT v2 server p.
-func (ac *client) CheckReachability(ctx context.Context, p peer.ID, reqs []Request) (Result, error) {
+// GetReachability verifies address reachability with a AutoNAT v2 server p.
+func (ac *client) GetReachability(ctx context.Context, p peer.ID, reqs []Request) (Result, error) {
 	ctx, cancel := context.WithTimeout(ctx, streamTimeout)
 	defer cancel()
 

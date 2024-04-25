@@ -82,11 +82,12 @@ type AutoNAT struct {
 	mx    sync.Mutex
 	peers *peersMap
 
-	allowAllAddrs bool // for testing
+	// allowAllAddrs enables using private and localhost addresses for reachability checks.
+	// This is only useful for testing.
+	allowAllAddrs bool
 }
 
-// New returns a new AutoNAT instance. The returned instance runs the server when the provided host
-// is publicly reachable.
+// New returns a new AutoNAT instance.
 // host and dialerHost should have the same dialing capabilities. In case the host doesn't support
 // a transport, dial back requests for address for that transport will be ignored.
 func New(host host.Host, dialerHost host.Host, opts ...AutoNATOption) (*AutoNAT, error) {
@@ -99,19 +100,12 @@ func New(host host.Host, dialerHost host.Host, opts ...AutoNATOption) (*AutoNAT,
 	// We are listening on event.EvtPeerProtocolsUpdated, event.EvtPeerConnectednessChanged
 	// event.EvtPeerIdentificationCompleted to maintain our set of autonat supporting peers.
 	//
-	// We listen on event.EvtLocalReachabilityChanged to Disable the server if we are not
-	// publicly reachable. Currently this event is sent by the AutoNAT v1 module. During the
-	// transition period from AutoNAT v1 to v2, there won't be enough v2 servers on the network
-	// and most clients will be unable to discover a peer which supports AutoNAT v2. So, we use
-	// v1 to determine reachability for the transition period.
-	//
 	// Once there are enough v2 servers on the network for nodes to determine their reachability
 	// using AutoNAT v2, we'll use Address Pipeline
 	// (https://github.com/libp2p/go-libp2p/issues/2229)(to be implemented in a future release)
 	// to determine reachability using v2 client and send this event from Address Pipeline, if
 	// we are publicly reachable.
 	sub, err := host.EventBus().Subscribe([]interface{}{
-		new(event.EvtLocalReachabilityChanged),
 		new(event.EvtPeerProtocolsUpdated),
 		new(event.EvtPeerConnectednessChanged),
 		new(event.EvtPeerIdentificationCompleted),
@@ -132,6 +126,7 @@ func New(host host.Host, dialerHost host.Host, opts ...AutoNATOption) (*AutoNAT,
 		peers:         newPeersMap(),
 	}
 	an.cli.RegisterDialBack()
+	an.srv.Enable()
 
 	an.wg.Add(1)
 	go an.background()
@@ -149,12 +144,6 @@ func (an *AutoNAT) background() {
 			return
 		case e := <-an.sub.Out():
 			switch evt := e.(type) {
-			case event.EvtLocalReachabilityChanged:
-				if evt.Reachability == network.ReachabilityPrivate {
-					an.srv.Disable()
-				} else {
-					an.srv.Enable()
-				}
 			case event.EvtPeerProtocolsUpdated:
 				an.updatePeer(evt.Peer)
 			case event.EvtPeerConnectednessChanged:
@@ -171,8 +160,8 @@ func (an *AutoNAT) Close() {
 	an.wg.Wait()
 }
 
-// CheckReachability makes a single dial request for checking reachability for requested addresses
-func (an *AutoNAT) CheckReachability(ctx context.Context, reqs []Request) (Result, error) {
+// GetReachability makes a single dial request for checking reachability for requested addresses
+func (an *AutoNAT) GetReachability(ctx context.Context, reqs []Request) (Result, error) {
 	if !an.allowAllAddrs {
 		for _, r := range reqs {
 			if !manet.IsPublicAddr(r.Addr) {
@@ -185,7 +174,7 @@ func (an *AutoNAT) CheckReachability(ctx context.Context, reqs []Request) (Resul
 		return Result{}, ErrNoValidPeers
 	}
 
-	res, err := an.cli.CheckReachability(ctx, p, reqs)
+	res, err := an.cli.GetReachability(ctx, p, reqs)
 	if err != nil {
 		log.Debugf("reachability check with %s failed, err: %s", p, err)
 		return Result{}, fmt.Errorf("reachability check with %s failed: %w", p, err)

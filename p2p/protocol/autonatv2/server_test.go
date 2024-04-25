@@ -35,7 +35,7 @@ func TestServerInvalidAddrsRejected(t *testing.T) {
 
 		idAndWait(t, c, an)
 
-		res, err := c.CheckReachability(context.Background(), newTestRequests(c.host.Addrs(), true))
+		res, err := c.GetReachability(context.Background(), newTestRequests(c.host.Addrs(), true))
 		require.ErrorIs(t, err, ErrDialRefused)
 		require.Equal(t, Result{}, res)
 	})
@@ -47,7 +47,7 @@ func TestServerInvalidAddrsRejected(t *testing.T) {
 
 		idAndWait(t, c, an)
 
-		res, err := c.CheckReachability(context.Background(), newTestRequests(c.host.Addrs(), true))
+		res, err := c.GetReachability(context.Background(), newTestRequests(c.host.Addrs(), true))
 		require.ErrorIs(t, err, ErrDialRefused)
 		require.Equal(t, Result{}, res)
 	})
@@ -84,10 +84,10 @@ func TestServerDataRequest(t *testing.T) {
 		}
 	}
 
-	_, err := c.CheckReachability(context.Background(), []Request{{Addr: tcpAddr, SendDialData: true}, {Addr: quicAddr}})
+	_, err := c.GetReachability(context.Background(), []Request{{Addr: tcpAddr, SendDialData: true}, {Addr: quicAddr}})
 	require.Error(t, err)
 
-	res, err := c.CheckReachability(context.Background(), []Request{{Addr: quicAddr, SendDialData: true}, {Addr: tcpAddr}})
+	res, err := c.GetReachability(context.Background(), []Request{{Addr: quicAddr, SendDialData: true}, {Addr: tcpAddr}})
 	require.NoError(t, err)
 
 	require.Equal(t, Result{
@@ -113,7 +113,7 @@ func TestServerDial(t *testing.T) {
 	hostAddrs := c.host.Addrs()
 
 	t.Run("unreachable addr", func(t *testing.T) {
-		res, err := c.CheckReachability(context.Background(),
+		res, err := c.GetReachability(context.Background(),
 			append([]Request{{Addr: unreachableAddr, SendDialData: true}}, newTestRequests(hostAddrs, false)...))
 		require.NoError(t, err)
 		require.Equal(t, Result{
@@ -125,7 +125,7 @@ func TestServerDial(t *testing.T) {
 	})
 
 	t.Run("reachable addr", func(t *testing.T) {
-		res, err := c.CheckReachability(context.Background(), newTestRequests(c.host.Addrs(), false))
+		res, err := c.GetReachability(context.Background(), newTestRequests(c.host.Addrs(), false))
 		require.NoError(t, err)
 		require.Equal(t, Result{
 			Idx:          0,
@@ -137,7 +137,7 @@ func TestServerDial(t *testing.T) {
 
 	t.Run("dialback error", func(t *testing.T) {
 		c.host.RemoveStreamHandler(DialBackProtocol)
-		res, err := c.CheckReachability(context.Background(), newTestRequests(c.host.Addrs(), false))
+		res, err := c.GetReachability(context.Background(), newTestRequests(c.host.Addrs(), false))
 		require.NoError(t, err)
 		require.Equal(t, Result{
 			Idx:          0,
