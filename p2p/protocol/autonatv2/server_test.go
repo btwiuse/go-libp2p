@@ -152,36 +152,40 @@ func TestRateLimiter(t *testing.T) {
 	cl := test.NewMockClock()
 	r := rateLimiter{RPM: 3, PerPeerRPM: 2, DialDataRPM: 1, now: cl.Now}
 
-	require.True(t, r.Accept("peer1", false))
+	require.True(t, r.Accept("peer1"))
 
 	cl.AdvanceBy(10 * time.Second)
-	require.False(t, r.Accept("peer1", false)) // first request is still active
+	require.False(t, r.Accept("peer1")) // first request is still active
 	r.CompleteRequest("peer1")
 
-	require.True(t, r.Accept("peer1", false))
+	require.True(t, r.Accept("peer1"))
 	r.CompleteRequest("peer1")
 
 	cl.AdvanceBy(10 * time.Second)
-	require.False(t, r.Accept("peer1", false))
+	require.False(t, r.Accept("peer1"))
 
 	cl.AdvanceBy(10 * time.Second)
-	require.True(t, r.Accept("peer2", false))
+	require.True(t, r.Accept("peer2"))
 	r.CompleteRequest("peer2")
 
 	cl.AdvanceBy(10 * time.Second)
-	require.False(t, r.Accept("peer3", false))
+	require.False(t, r.Accept("peer3"))
 
 	cl.AdvanceBy(21 * time.Second) // first request expired
-	require.True(t, r.Accept("peer1", false))
+	require.True(t, r.Accept("peer1"))
 	r.CompleteRequest("peer1")
 
 	cl.AdvanceBy(10 * time.Second)
-	require.True(t, r.Accept("peer3", true))
+	require.True(t, r.Accept("peer3"))
 	r.CompleteRequest("peer3")
 
 	cl.AdvanceBy(50 * time.Second)
-	require.False(t, r.Accept("peer3", true))
+	require.True(t, r.Accept("peer3"))
+	r.CompleteRequest("peer3")
 
-	cl.AdvanceBy(11 * time.Second)
-	require.True(t, r.Accept("peer3", true))
+	cl.AdvanceBy(1 * time.Second)
+	require.False(t, r.Accept("peer3"))
+
+	cl.AdvanceBy(10 * time.Second)
+	require.True(t, r.Accept("peer3"))
 }
