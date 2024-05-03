@@ -31,6 +31,7 @@ type Conn struct {
 	err       error
 
 	notifyLk sync.Mutex
+	notified bool
 
 	streams struct {
 		sync.Mutex
@@ -73,6 +74,11 @@ func (c *Conn) doClose() {
 
 	c.err = c.conn.Close()
 
+	// Send the connectedness event after closing the connection.
+	// This ensures that both remote connection close and local connection
+	// close events are sent after the underlying transport connection is closed.
+	c.swarm.connectednessEventEmitter.RemoveConn(c.RemotePeer())
+
 	// This is just for cleaning up state. The connection has already been closed.
 	// We *could* optimize this but it really isn't worth it.
 	for s := range streams {
@@ -85,10 +91,13 @@ func (c *Conn) doClose() {
 		c.notifyLk.Lock()
 		defer c.notifyLk.Unlock()
 
-		c.swarm.notifyAll(func(f network.Notifiee) {
-			f.Disconnected(c.swarm, c)
-		})
-		c.swarm.refs.Done() // taken in Swarm.addConn
+		defer c.swarm.refs.Done() // taken in Swarm.addConn
+		if c.notified {
+			// Only notify for disconnection if we notified for connection
+			c.swarm.notifyAll(func(f network.Notifiee) {
+				f.Disconnected(c.swarm, c)
+			})
+		}
 	}()
 }
 
