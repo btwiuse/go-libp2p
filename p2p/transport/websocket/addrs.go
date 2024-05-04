@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
+	_ "github.com/btwiuse/x-parity-wss"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
@@ -127,6 +128,7 @@ func parseMultiaddr(maddr ma.Multiaddr) (*url.URL, error) {
 	return &url.URL{
 		Scheme: scheme,
 		Host:   host,
+		Path:   parsed.path,
 	}, nil
 }
 
@@ -136,20 +138,38 @@ type parsedWebsocketMultiaddr struct {
 	sni *ma.Component
 	// the rest of the multiaddr before the /tls/sni/example.com/ws or /ws or /wss
 	restMultiaddr ma.Multiaddr
+	// the rest of the multiaddr after /x-parity-ws or /x-parity-wss
+	path string
 }
 
 func parseWebsocketMultiaddr(a ma.Multiaddr) (parsedWebsocketMultiaddr, error) {
 	out := parsedWebsocketMultiaddr{}
+
 	// First check if we have a WSS component. If so we'll canonicalize it into a /tls/ws
 	withoutWss := a.Decapsulate(wssComponent)
 	if !withoutWss.Equal(a) {
 		a = withoutWss.Encapsulate(tlsWsComponent)
 	}
 
+	// then check if we have a x-parity-wss
+	withoutWss, c := ma.SplitLast(a)
+	if !withoutWss.Equal(a) && c.Protocol().Name == "x-parity-wss" {
+		a = withoutWss.Encapsulate(ma.StringCast(fmt.Sprintf("/tls/x-parity-ws/%s", c.Value())))
+	}
+
 	// Remove the ws component
-	withoutWs := a.Decapsulate(wsComponent)
-	if withoutWs.Equal(a) {
+	withoutWs, c := ma.SplitLast(a)
+	if c.Protocol().Name != "ws" && c.Protocol().Name != "x-parity-ws" {
 		return out, fmt.Errorf("not a websocket multiaddr")
+	}
+	if c.Protocol().Name == "x-parity-ws" {
+		// percent decode the path
+		println(c.Value())
+		v, err := url.QueryUnescape(c.Value())
+		if err != nil {
+			return out, err
+		}
+		out.path = v
 	}
 
 	rest := withoutWs

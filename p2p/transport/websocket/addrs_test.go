@@ -24,6 +24,21 @@ func TestMultiaddrParsing(t *testing.T) {
 	}
 }
 
+func TestMultiaddrWithPathParsing(t *testing.T) {
+	addr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/5555/x-parity-ws/%2Fsubmit%2F")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wsaddr, err := parseMultiaddr(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wsaddr.String() != "ws://127.0.0.1:5555/submit/" {
+		t.Fatalf("expected ws://127.0.0.1:5555/submit/, got %s", wsaddr)
+	}
+}
+
 type httpAddr struct {
 	*url.URL
 }

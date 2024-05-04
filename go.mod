@@ -1,11 +1,12 @@
 module github.com/libp2p/go-libp2p
 
-go 1.21
+go 1.22.2
 
 retract v0.26.1 // Tag was applied incorrectly due to a bug in the release workflow.
 
 require (
 	github.com/benbjohnson/clock v1.3.5
+	github.com/btwiuse/x-parity-wss v0.0.2
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
 	github.com/flynn/noise v1.1.0
@@ -34,7 +35,7 @@ require (
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-base32 v0.1.0
-	github.com/multiformats/go-multiaddr v0.12.2
+	github.com/multiformats/go-multiaddr v0.12.3
 	github.com/multiformats/go-multiaddr-dns v0.3.1
 	github.com/multiformats/go-multiaddr-fmt v0.1.0
 	github.com/multiformats/go-multibase v0.2.0
