@@ -164,7 +164,6 @@ func parseWebsocketMultiaddr(a ma.Multiaddr) (parsedWebsocketMultiaddr, error) {
 	}
 	if c.Protocol().Name == "x-parity-ws" {
 		// percent decode the path
-		println(c.Value())
 		v, err := url.QueryUnescape(c.Value())
 		if err != nil {
 			return out, err
