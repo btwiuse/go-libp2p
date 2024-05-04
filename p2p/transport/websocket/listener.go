@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/transport"
+	"github.com/webteleport/webteleport"
 
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -15,7 +17,6 @@ import (
 
 type listener struct {
 	nl     net.Listener
-	server http.Server
 	// The Go standard library sets the http.Server.TLSConfig no matter if this is a WS or WSS,
 	// so we can't rely on checking if server.TLSConfig is set.
 	isWss bool
@@ -51,10 +52,17 @@ func newListener(a ma.Multiaddr, tlsConf *tls.Config) (*listener, error) {
 	}
 
 	lnet, lnaddr, err := manet.DialArgs(parsed.restMultiaddr)
+	_ = lnet
 	if err != nil {
 		return nil, err
 	}
-	nl, err := net.Listen(lnet, lnaddr)
+	scheme := "ws"
+	if parsed.isWSS {
+		scheme = "wss"
+	}
+	relayAddr := fmt.Sprintf("%s://%s%s?x-websocket-upgrade", scheme, lnaddr, parsed.path)
+	nl, err := webteleport.Listen(context.Background(), relayAddr)
+	// nl, err := net.Listen(lnet, lnaddr)
 	if err != nil {
 		return nil, err
 	}
@@ -78,21 +86,15 @@ func newListener(a ma.Multiaddr, tlsConf *tls.Config) (*listener, error) {
 		incoming: make(chan *Conn),
 		closed:   make(chan struct{}),
 	}
-	ln.server = http.Server{Handler: ln}
 	if parsed.isWSS {
 		ln.isWss = true
-		ln.server.TLSConfig = tlsConf
 	}
 	return ln, nil
 }
 
 func (l *listener) serve() {
 	defer close(l.closed)
-	if !l.isWss {
-		l.server.Serve(l.nl)
-	} else {
-		l.server.ServeTLS(l.nl, "", "")
-	}
+	http.Serve(l.nl, l)
 }
 
 func (l *listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +136,6 @@ func (l *listener) Addr() net.Addr {
 }
 
 func (l *listener) Close() error {
-	l.server.Close()
 	err := l.nl.Close()
 	<-l.closed
 	if strings.Contains(err.Error(), "use of closed network connection") {
