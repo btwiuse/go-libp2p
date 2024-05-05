@@ -6,17 +6,18 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/transport"
-	"github.com/webteleport/webteleport"
+	"github.com/webteleport/webteleport/transport/websocket"
 
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 type listener struct {
-	nl     net.Listener
+	nl net.Listener
 	// The Go standard library sets the http.Server.TLSConfig no matter if this is a WS or WSS,
 	// so we can't rely on checking if server.TLSConfig is set.
 	isWss bool
@@ -47,12 +48,7 @@ func newListener(a ma.Multiaddr, tlsConf *tls.Config) (*listener, error) {
 		return nil, err
 	}
 
-	if parsed.isWSS && tlsConf == nil {
-		return nil, fmt.Errorf("cannot listen on wss address %s without a tls.Config", a)
-	}
-
-	lnet, lnaddr, err := manet.DialArgs(parsed.restMultiaddr)
-	_ = lnet
+	_, lnaddr, err := manet.DialArgs(parsed.restMultiaddr)
 	if err != nil {
 		return nil, err
 	}
@@ -60,36 +56,62 @@ func newListener(a ma.Multiaddr, tlsConf *tls.Config) (*listener, error) {
 	if parsed.isWSS {
 		scheme = "wss"
 	}
-	relayAddr := fmt.Sprintf("%s://%s%s?x-websocket-upgrade", scheme, lnaddr, parsed.path)
-	nl, err := webteleport.Listen(context.Background(), relayAddr)
-	// nl, err := net.Listen(lnet, lnaddr)
+
+	// dial
+	relayAddr := fmt.Sprintf("%s://%s%s?x-websocket-upgrade=1", scheme, lnaddr, parsed.path)
+	nl, err := websocket.Listen(context.Background(), relayAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	laddr, err := manet.FromNetAddr(nl.Addr())
+	laddr, err := netAddr2Multiaddr(nl.Addr())
 	if err != nil {
 		return nil, err
 	}
-	first, _ := ma.SplitFirst(a)
-	// Don't resolve dns addresses.
-	// We want to be able to announce domain names, so the peer can validate the TLS certificate.
-	if c := first.Protocol().Code; c == ma.P_DNS || c == ma.P_DNS4 || c == ma.P_DNS6 || c == ma.P_DNSADDR {
-		_, last := ma.SplitFirst(laddr)
-		laddr = first.Encapsulate(last)
-	}
-	parsed.restMultiaddr = laddr
 
 	ln := &listener{
 		nl:       nl,
-		laddr:    parsed.toMultiaddr(),
+		isWss:    parsed.isWSS,
+		laddr:    laddr,
 		incoming: make(chan *Conn),
 		closed:   make(chan struct{}),
 	}
-	if parsed.isWSS {
-		ln.isWss = true
-	}
 	return ln, nil
+}
+
+func netAddr2Multiaddr(addr net.Addr) (ma.Multiaddr, error) {
+	u, err := url.Parse(addr.Network() + "://" + addr.String())
+	if err != nil {
+		return nil, err
+	}
+
+	port := u.Port()
+	if port == "" {
+		if u.Scheme == "ws" {
+			port = "80"
+		} else if u.Scheme == "wss" {
+			port = "443"
+		}
+	}
+
+	switch addr.Network() {
+	case "ws":
+		// convert to multiaddr, assume ws on 80
+		if u.Path == "" {
+			return ma.StringCast(fmt.Sprintf("/dns4/%s/tcp/%s/ws", u.Hostname(), port)), nil
+		}
+
+		return ma.StringCast(fmt.Sprintf("/dns4/%s/tcp/%s/x-parity-ws/%s", u.Hostname(), port, url.QueryEscape(u.Path))), nil
+	case "wss":
+		// convert to multiaddr, assume wss on 443
+		if u.Path == "" {
+			return ma.StringCast(fmt.Sprintf("/dns4/%s/tcp/%s/wss", u.Hostname(), port)), nil
+		}
+
+		return ma.StringCast(fmt.Sprintf("/dns4/%s/tcp/%s/x-parity-wss/%s", u.Hostname(), port, url.QueryEscape(u.Path))), nil
+	}
+
+	return nil, fmt.Errorf("unsupported network: %s", addr.Network())
 }
 
 func (l *listener) serve() {
@@ -112,6 +134,19 @@ func (l *listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// The connection has been hijacked, it's safe to return.
 }
 
+type MyConn struct {
+	net.Conn
+}
+
+func (c *MyConn) LocalMultiaddr() ma.Multiaddr {
+	return ma.StringCast("/ip4/127.0.0.1/tcp/418")
+}
+
+// fix websocket/unknown-unknown
+func (c *MyConn) RemoteMultiaddr() ma.Multiaddr {
+	return ma.StringCast("/ip4/127.0.0.1/tcp/404")
+}
+
 func (l *listener) Accept() (manet.Conn, error) {
 	select {
 	case c, ok := <-l.incoming:
@@ -119,12 +154,7 @@ func (l *listener) Accept() (manet.Conn, error) {
 			return nil, transport.ErrListenerClosed
 		}
 
-		mnc, err := manet.WrapNetConn(c)
-		if err != nil {
-			c.Close()
-			return nil, err
-		}
-
+		mnc := &MyConn{Conn: c}
 		return mnc, nil
 	case <-l.closed:
 		return nil, transport.ErrListenerClosed

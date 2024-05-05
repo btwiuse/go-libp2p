@@ -12,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/transport"
 
+	wsx "github.com/btwiuse/x-parity-wss"
 	ma "github.com/multiformats/go-multiaddr"
 	mafmt "github.com/multiformats/go-multiaddr-fmt"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -27,6 +28,7 @@ var dialMatcher = mafmt.And(
 	mafmt.Base(ma.P_TCP),
 	mafmt.Or(
 		mafmt.Base(ma.P_WS),
+		mafmt.Base(wsx.P_WS_WITH_PATH),
 		mafmt.And(
 			mafmt.Or(
 				mafmt.And(
@@ -35,6 +37,15 @@ var dialMatcher = mafmt.And(
 				mafmt.Base(ma.P_TLS),
 			),
 			mafmt.Base(ma.P_WS)),
+		mafmt.And(
+			mafmt.Or(
+				mafmt.And(
+					mafmt.Base(ma.P_TLS),
+					mafmt.Base(ma.P_SNI)),
+				mafmt.Base(ma.P_TLS),
+			),
+			mafmt.Base(wsx.P_WS_WITH_PATH)),
+		mafmt.Base(wsx.P_WSS_WITH_PATH),
 		mafmt.Base(ma.P_WSS)))
 
 var (
@@ -48,6 +59,8 @@ func init() {
 	manet.RegisterFromNetAddr(ParseWebsocketNetAddr, "websocket")
 	manet.RegisterToNetAddr(ConvertWebsocketMultiaddrToNetAddr, "ws")
 	manet.RegisterToNetAddr(ConvertWebsocketMultiaddrToNetAddr, "wss")
+	manet.RegisterToNetAddr(ConvertWebsocketMultiaddrToNetAddr, "x-parity-ws")
+	manet.RegisterToNetAddr(ConvertWebsocketMultiaddrToNetAddr, "x-parity-wss")
 }
 
 // Default gorilla upgrader
@@ -113,7 +126,7 @@ func (t *WebsocketTransport) CanDial(a ma.Multiaddr) bool {
 }
 
 func (t *WebsocketTransport) Protocols() []int {
-	return []int{ma.P_WS, ma.P_WSS}
+	return []int{ma.P_WS, ma.P_WSS, wsx.P_WS_WITH_PATH, wsx.P_WSS_WITH_PATH}
 }
 
 func (t *WebsocketTransport) Proxy() bool {
