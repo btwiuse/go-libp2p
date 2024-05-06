@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"fmt"
+	llll "log"
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/transport"
@@ -41,6 +42,7 @@ func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
 // TransportForListening retrieves the appropriate transport for listening on
 // the given multiaddr.
 func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
+	println("hi")
 	protocols := a.Protocols()
 	if len(protocols) == 0 {
 		return nil
@@ -74,6 +76,7 @@ func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
 // Satisfies the Network interface from go-libp2p-transport.
 func (s *Swarm) AddTransport(t transport.Transport) error {
 	protocols := t.Protocols()
+	llll.Println("AddTransport", protocols)
 
 	if len(protocols) == 0 {
 		return fmt.Errorf("useless transport handles no protocols: %T", t)

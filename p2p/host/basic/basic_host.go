@@ -192,6 +192,7 @@ func NewHost(n network.Network, opts *HostOpts) (*BasicHost, error) {
 	}
 
 	h.updateLocalIpAddr()
+	println("2 updateLocalIpAddr")
 
 	if h.emitters.evtLocalProtocolsUpdated, err = h.eventbus.Emitter(&event.EvtLocalProtocolsUpdated{}, eventbus.Stateful); err != nil {
 		return nil, err
@@ -541,6 +542,7 @@ func (h *BasicHost) background() {
 	for {
 		if len(h.network.ListenAddresses()) > 0 {
 			h.updateLocalIpAddr()
+			println("updateLocalIpAddr")
 		}
 		// Request addresses anyways because, technically, address filters still apply.
 		// The underlying AllAddrs call is effectively a no-op.
@@ -787,6 +789,7 @@ func (h *BasicHost) Addrs() []ma.Multiaddr {
 	copy(addrs, addrsOld)
 
 	for i, addr := range addrs {
+		println(i, addr.String())
 		wtOK, wtN := libp2pwebtransport.IsWebtransportMultiaddr(addr)
 		webrtcOK, webrtcN := libp2pwebrtc.IsWebRTCDirectMultiaddr(addr)
 		if (wtOK && wtN == 0) || (webrtcOK && webrtcN == 0) {

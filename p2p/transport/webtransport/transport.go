@@ -203,12 +203,10 @@ func (t *transport) dial(ctx context.Context, addr ma.Multiaddr, url, sni string
 		return nil, err
 	}
 	dialer := webtransport.Dialer{
-		RoundTripper: &http3.RoundTripper{
-			Dial: func(ctx context.Context, addr string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
-				return conn.(quic.EarlyConnection), nil
-			},
-			QuicConfig: t.connManager.ClientConfig().Clone(),
+		DialAddr: func(ctx context.Context, addr string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+			return conn.(quic.EarlyConnection), nil
 		},
+		QUICConfig: t.connManager.ClientConfig().Clone(),
 	}
 	rsp, sess, err := dialer.Dial(ctx, url, nil)
 	if err != nil {

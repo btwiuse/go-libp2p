@@ -1,8 +1,9 @@
 package metricshelper
 
 import ma "github.com/multiformats/go-multiaddr"
+import wsx "github.com/btwiuse/x-parity-wss"
 
-var transports = [...]int{ma.P_CIRCUIT, ma.P_WEBRTC, ma.P_WEBRTC_DIRECT, ma.P_WEBTRANSPORT, ma.P_QUIC, ma.P_QUIC_V1, ma.P_WSS, ma.P_WS, ma.P_TCP}
+var transports = [...]int{ma.P_CIRCUIT, ma.P_WEBRTC, ma.P_WEBRTC_DIRECT, ma.P_WEBTRANSPORT, ma.P_QUIC, ma.P_QUIC_V1, ma.P_WSS, ma.P_WS, ma.P_TCP, wsx.P_WS_WITH_PATH, wsx.P_WSS_WITH_PATH}
 
 func GetTransport(a ma.Multiaddr) string {
 	for _, t := range transports {

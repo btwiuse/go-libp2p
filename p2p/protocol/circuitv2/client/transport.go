@@ -19,6 +19,7 @@ var circuitAddr = ma.Cast(circuitProtocol.VCode)
 // AddTransport constructs a new p2p-circuit/v2 client and adds it as a transport to the
 // host network
 func AddTransport(h host.Host, upgrader transport.Upgrader) error {
+	println("circuit: adding transport")
 	n, ok := h.Network().(transport.TransportNetwork)
 	if !ok {
 		return fmt.Errorf("%v is not a transport network", h.Network())

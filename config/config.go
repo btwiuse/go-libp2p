@@ -274,6 +274,7 @@ func (cfg *Config) addTransports() ([]fx.Option, error) {
 			func(swrm *swarm.Swarm, tpts []transport.Transport) error {
 				for _, t := range tpts {
 					if err := swrm.AddTransport(t); err != nil {
+						println("config.AddTransport")
 						return err
 					}
 				}

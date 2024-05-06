@@ -66,6 +66,7 @@ func (s *Swarm) ListenClose(addrs ...ma.Multiaddr) {
 // AddListenAddr tells the swarm to listen on a single address. Unlike Listen,
 // this method does not attempt to filter out bad addresses.
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
+	println("TransportForListening", a.String())
 	tpt := s.TransportForListening(a)
 	if tpt == nil {
 		// TransportForListening will return nil if either:
