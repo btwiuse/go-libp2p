@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -352,7 +353,9 @@ func (h *BasicHost) updateLocalIpAddr() {
 	if err != nil {
 		// This usually shouldn't happen, but we could be in some kind
 		// of funky restricted environment.
-		log.Errorw("failed to resolve local interface addresses", "error", err)
+		if os.Getenv("LIBP2P_DEBUG") != "" {
+			log.Errorw("failed to resolve local interface addresses", "error", err)
+		}
 
 		// Add the loopback addresses to the filtered addrs and use them as the non-filtered addrs.
 		// Then bail. There's nothing else we can do here.
