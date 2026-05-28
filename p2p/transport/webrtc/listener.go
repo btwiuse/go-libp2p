@@ -1,3 +1,5 @@
+//go:build !(js && wasm)
+
 package libp2pwebrtc
 
 import (

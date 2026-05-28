@@ -1,5 +1,7 @@
 // The udpmux package contains the logic for multiplexing multiple WebRTC (ICE)
 // connections over a single UDP socket.
+//go:build !(js && wasm)
+
 package udpmux
 
 import (
